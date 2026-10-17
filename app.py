@@ -96,7 +96,7 @@ if uploaded_file is not None:
         with st.spinner("出目とリール（衣率・上げ底）を解析中..."):
             try:
                 response = client.models.generate_content(
-                    model="gemini-2.5-flash",
+                    model="gemini-3.8-flash",
                     contents=[image, "この惣菜・弁当の設定と価格妥当性を判別してください。"],
                     config=types.GenerateContentConfig(
                         system_instruction=SYSTEM_INSTRUCTION,
