@@ -187,3 +187,45 @@ if uploaded_files:
                 col2.metric("機械割", f"{j['payout_rate']}%")
                 
                 st.markdown(f"<div class='action-box'><b>🎯 今夜の立ち回り:</b><br>{j['action']}</div>", unsafe_allow_html=True)
+                
+                t_cls = {
+                    "レインボー": "badge-rainbow",
+                    "キリン柄": "badge-kirin",
+                    "ゴールド": "badge-gold",
+                    "シルバー": "badge-silver",
+                    "ブロンズ": "badge-bronze"
+                }.get(j["trophy"], "badge-none")
+                
+                st.markdown(f"**トロフィー**: <span class='{t_cls}'>{j['trophy']}</span>", unsafe_allow_html=True)
+                st.markdown("---")
+                
+                p = res["pricing"]
+                p1, p2, p3, p4 = st.columns(4)
+                p1.write(f"**定価**: ¥{p['list_price']:,}" if p['list_price'] else "**定価**: 不明")
+                p2.write(f"**値引き**: {p['discount_type']}")
+                p3.write(f"**実支払額**: ¥{p['pay_price']:,}" if p['pay_price'] else "**実支払額**: 不明")
+                p4.write(f"**適正価格**: ¥{p['fair_price']:,}")
+                st.markdown("---")
+                
+                f = res["features"]
+                icon = a_type_icon if "和食" in res.get('genre', '') or "おこわ" in res.get('genre', '') else "🍱"
+                st.markdown(f"#### {icon} 特性 & 盤面チェックポイント")
+                st.write(f"- **メイン評価**: {f['core_eval']}")
+                pts = f.get("checkpoints", [])
+                if pts:
+                    st.markdown("**留意点**: " + " ".join([f"<span class='point-chip'>📌 {pt}</span>" for pt in pts]), unsafe_allow_html=True)
+                else:
+                    st.write("**留意点**: 特になし（良好なノーマル仕様）")
+                st.markdown("---")
+                
+                st.markdown("#### 🗣️ ホール講評（立ち回りアドバイス）")
+                st.info(res["toxic_review"])
+                st.markdown("---")
+                
+                st.warning(
+                    f"**🔥 さらに上（設定6）を目指すには！？【立ち回り指南】**\n\n"
+                    f"- 📉 **価格変動ルート**: {f.get('price_to_6', '半額シール直撃を待て')}\n\n"
+                    f"- 🥩 **内容変更ルート**: {f.get('content_to_6', '素材の原価破壊仕様を探せ')}"
+                )
+            except Exception as e:
+                st.error(f"判別中にエラーが発生しました: {str(e)}")
