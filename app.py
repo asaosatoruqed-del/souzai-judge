@@ -17,7 +17,7 @@ st.markdown("""
     .badge-bronze { background-color: #cd7f32; color: white; padding: 4px 10px; border-radius: 4px; font-weight: bold; }
     .badge-none { background-color: #33333e; color: #888; padding: 4px 10px; border-radius: 4px; }
     
-    /* 留意点：警告色を完全排除し、落ち着いたダークグレー基調に */
+    /* 留意点：落ち着いたダークグレー基調 */
     .point-chip {
         background-color: #262730;
         color: #cfd2dc;
@@ -121,102 +121,12 @@ else:
     a_type_icon = "🤡"
 
 SYSTEM_INSTRUCTION = (
-    "惣菜・弁当の画像から実質コスパを設定（1〜6）および機械割で判定するパチスロ風エージェントです。\n\n"
+    "惣菜・弁当の画像およびユーザーの補足テキスト情報から、実質コスパを設定（1〜6）および機械割で判定するパチスロ風エージェントです。\n\n"
+    "【ユーザー補足情報の扱い】\n"
+    "ユーザーから画像では見えない情報（持った重み、上げ底の深さ、値引きシールの重ね貼り履歴、肉の厚みなど）が提供された場合、"
+    "それを『打手からの決定的な小役カウント・実戦データ』として強く判別に反映させてください。\n\n"
     "【立ち回り鉄則】\n"
     "・設定4以上（機械割104%超）: 定価でも迷わず即買い・キープ推奨！設定4確定なら腰を据えてツモるのがプロの鉄則。値引きを待つ必要は一切ない。\n"
     "・設定3以下（機械割101%未満）: 定価ではスルー・即ヤメ推奨。夕方以降の値引きシール（CZ）が付くまで見送り。\n\n"
     "【料理ジャンル別スペック】\n"
-    "1. 肉・揚げ物・がっつり弁当（AT機）: タンパク質単価を重視。20円以下/gは設定6、40円以上/gや過剰な衣・上げ底は設定1。\n"
-    f"{a_type_rule}\n\n"
-    "【トロフィー命名規則（厳守）】\n"
-    "設定1: なし、設定2: ブロンズ、設定3: シルバー、設定4: ゴールド、設定5: キリン柄、設定6: レインボー\n\n"
-    "【講評の注意点（超重要）】\n"
-    "実戦エリア（ハナハナかジャグラーか）はユーザーが選択済みであり自明の前提なので、"
-    "講評の冒頭で『東海・沖縄のハナハナ王国において〜』『関東ジャグラー圏において〜』といった前フリ・説明文は一切書かないでください。"
-    "最初からその機種の世界観に入り込んで直接本題・毒舌アドバイスを述べてください。\n\n"
-    "【設定6（レインボー・機械割115%超）への2大昇格ルート】\n"
-    "- price_to_6: 価格変動（例: 半額シール直撃で○○円以下なら設定6昇格）\n"
-    "- content_to_6: 内容変更（例: 大粒栗の丸ごと投入、松茸スライス等で定価でも設定6）"
-)
-
-uploaded_file = st.file_uploader("惣菜・弁当・シールの写真をアップロード", type=["jpg", "jpeg", "png"])
-
-if uploaded_file is not None:
-    image = Image.open(uploaded_file)
-    st.image(image, caption="判別対象の台", use_container_width=True)
-    
-    if st.button("設定推測レバーを叩く！ 🎰", type="primary"):
-        with st.spinner("出目・リール・スペック特性を解析中..."):
-            try:
-                cfg = types.GenerateContentConfig(
-                    system_instruction=SYSTEM_INSTRUCTION,
-                    response_mime_type="application/json",
-                    response_schema=RESPONSE_SCHEMA,
-                    temperature=0.3
-                )
-                response = client.models.generate_content(
-                    model="gemini-3.8-flash",
-                    contents=[image, f"この商品の設定判別と立ち回りを判定してください。実戦エリアは【{region}】です。"],
-                    config=cfg
-                )
-                res = json.loads(response.text)
-                
-                st.subheader(f"🔍 判定台: {res['product_name']}")
-                st.caption(f"スペック分類: {res.get('genre', '一般惣菜')} ｜ エリア: {region}")
-                
-                j = res["slot_judgment"]
-                
-                # 「設定推測」「機械割」表示
-                col1, col2 = st.columns(2)
-                col1.metric("設定推測", f"設定 {j['setting']}")
-                col2.metric("機械割", f"{j['payout_rate']}%")
-                
-                # 立ち回り表示
-                st.markdown(f"<div class='action-box'><b>🎯 今夜の立ち回り:</b><br>{j['action']}</div>", unsafe_allow_html=True)
-                
-                # トロフィー表示
-                t_cls = {
-                    "レインボー": "badge-rainbow",
-                    "キリン柄": "badge-kirin",
-                    "ゴールド": "badge-gold",
-                    "シルバー": "badge-silver",
-                    "ブロンズ": "badge-bronze"
-                }.get(j["trophy"], "badge-none")
-                
-                st.markdown(f"**トロフィー**: <span class='{t_cls}'>{j['trophy']}</span>", unsafe_allow_html=True)
-                st.markdown("---")
-                
-                # 価格・収支
-                p = res["pricing"]
-                p1, p2, p3, p4 = st.columns(4)
-                p1.write(f"**定価**: ¥{p['list_price']:,}" if p['list_price'] else "**定価**: 不明")
-                p2.write(f"**値引き**: {p['discount_type']}")
-                p3.write(f"**実支払額**: ¥{p['pay_price']:,}" if p['pay_price'] else "**実支払額**: 不明")
-                p4.write(f"**適正価格**: ¥{p['fair_price']:,}")
-                st.markdown("---")
-                
-                # 特性＆チェックポイント（落ち着いたピンチップ）
-                f = res["features"]
-                icon = a_type_icon if "和食" in res.get('genre', '') or "おこわ" in res.get('genre', '') else "🍱"
-                st.markdown(f"#### {icon} 特性 & 盤面チェックポイント")
-                st.write(f"- **メイン評価**: {f['core_eval']}")
-                pts = f.get("checkpoints", [])
-                if pts:
-                    st.markdown("**留意点**: " + " ".join([f"<span class='point-chip'>📌 {pt}</span>" for pt in pts]), unsafe_allow_html=True)
-                else:
-                    st.write("**留意点**: 特になし（良好なノーマル仕様）")
-                st.markdown("---")
-                
-                # 講評
-                st.markdown("#### 🗣️ ホール講評（立ち回りアドバイス）")
-                st.info(res["toxic_review"])
-                st.markdown("---")
-                
-                # 設定6への道
-                st.warning(
-                    f"**🔥 さらに上（設定6）を目指すには！？【立ち回り指南】**\n\n"
-                    f"- 📉 **価格変動ルート**: {f.get('price_to_6', '半額シール直撃を待て')}\n\n"
-                    f"- 🥩 **内容変更ルート**: {f.get('content_to_6', '素材の原価破壊仕様を探せ')}"
-                )
-            except Exception as e:
-                st.error(f"判別中にエラーが発生しました: {str(e)}")
+    "1.
