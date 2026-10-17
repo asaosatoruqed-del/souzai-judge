@@ -135,20 +135,43 @@ SYSTEM_INSTRUCTION = (
     "- content_to_6: 内容変更（例: 大粒栗の丸ごと投入、松茸スライス等で定価でも設定6）"
 )
 
-# 複数ファイルアップロード対応（accept_multiple_files=True）
+# アップロード管理とメモ自動リセット用のセッション管理
+if "user_memo_val" not in st.session_state:
+    st.session_state["user_memo_val"] = ""
+if "last_uploaded_names" not in st.session_state:
+    st.session_state["last_uploaded_names"] = []
+
 uploaded_files = st.file_uploader(
     "惣菜・弁当・シールの写真をアップロード（複数枚OK）",
     type=["jpg", "jpeg", "png"],
     accept_multiple_files=True
 )
 
-user_memo = st.text_input(
-    "打手の実戦メモ（任意）",
-    placeholder="例: 底が3cmくらい隆起してる、持ったら異常にズッシリ重い、シールの下にもう1枚シールがある、等"
-)
+# 新しい写真がアップロードされたらメモを自動クリア
+current_names = [f.name for f in uploaded_files] if uploaded_files else []
+if current_names != st.session_state["last_uploaded_names"]:
+    st.session_state["user_memo_val"] = ""
+    st.session_state["last_uploaded_names"] = current_names
+
+# メモ入力欄 ＋ 手動クリアボタン
+col_memo, col_clear = st.columns([5, 1])
+with col_memo:
+    user_memo = st.text_input(
+        "打手の実戦メモ（任意）",
+        value=st.session_state["user_memo_val"],
+        key="memo_input",
+        placeholder="例: 底が3cmくらい隆起してる、持ったら異常にズッシリ重い、シールの下にもう1枚シールがある、等"
+    )
+    st.session_state["user_memo_val"] = user_memo
+
+with col_clear:
+    st.write("") # 上部余白あわせ
+    st.write("")
+    if st.button("メモ消去"):
+        st.session_state["user_memo_val"] = ""
+        st.rerun()
 
 if uploaded_files:
-    # プレビュー表示（複数枚を横並びまたは順次表示）
     images = [Image.open(f) for f in uploaded_files]
     cols = st.columns(min(len(images), 3))
     for idx, img in enumerate(images):
@@ -168,7 +191,6 @@ if uploaded_files:
                 if user_memo.strip():
                     prompt_text += f"\n【打手からの実戦メモ・補足情報】: {user_memo.strip()}"
                 
-                # すべての画像とプロンプトをまとめてAPIへ投入
                 contents_payload = images + [prompt_text]
                 
                 response = client.models.generate_content(
@@ -183,49 +205,4 @@ if uploaded_files:
                 
                 j = res["slot_judgment"]
                 col1, col2 = st.columns(2)
-                col1.metric("設定推測", f"設定 {j['setting']}")
-                col2.metric("機械割", f"{j['payout_rate']}%")
-                
-                st.markdown(f"<div class='action-box'><b>🎯 今夜の立ち回り:</b><br>{j['action']}</div>", unsafe_allow_html=True)
-                
-                t_cls = {
-                    "レインボー": "badge-rainbow",
-                    "キリン柄": "badge-kirin",
-                    "ゴールド": "badge-gold",
-                    "シルバー": "badge-silver",
-                    "ブロンズ": "badge-bronze"
-                }.get(j["trophy"], "badge-none")
-                
-                st.markdown(f"**トロフィー**: <span class='{t_cls}'>{j['trophy']}</span>", unsafe_allow_html=True)
-                st.markdown("---")
-                
-                p = res["pricing"]
-                p1, p2, p3, p4 = st.columns(4)
-                p1.write(f"**定価**: ¥{p['list_price']:,}" if p['list_price'] else "**定価**: 不明")
-                p2.write(f"**値引き**: {p['discount_type']}")
-                p3.write(f"**実支払額**: ¥{p['pay_price']:,}" if p['pay_price'] else "**実支払額**: 不明")
-                p4.write(f"**適正価格**: ¥{p['fair_price']:,}")
-                st.markdown("---")
-                
-                f = res["features"]
-                icon = a_type_icon if "和食" in res.get('genre', '') or "おこわ" in res.get('genre', '') else "🍱"
-                st.markdown(f"#### {icon} 特性 & 盤面チェックポイント")
-                st.write(f"- **メイン評価**: {f['core_eval']}")
-                pts = f.get("checkpoints", [])
-                if pts:
-                    st.markdown("**留意点**: " + " ".join([f"<span class='point-chip'>📌 {pt}</span>" for pt in pts]), unsafe_allow_html=True)
-                else:
-                    st.write("**留意点**: 特になし（良好なノーマル仕様）")
-                st.markdown("---")
-                
-                st.markdown("#### 🗣️ ホール講評（立ち回りアドバイス）")
-                st.info(res["toxic_review"])
-                st.markdown("---")
-                
-                st.warning(
-                    f"**🔥 さらに上（設定6）を目指すには！？【立ち回り指南】**\n\n"
-                    f"- 📉 **価格変動ルート**: {f.get('price_to_6', '半額シール直撃を待て')}\n\n"
-                    f"- 🥩 **内容変更ルート**: {f.get('content_to_6', '素材の原価破壊仕様を探せ')}"
-                )
-            except Exception as e:
-                st.error(f"判別中にエラーが発生しました: {str(e)}")
+                col1.metric("
