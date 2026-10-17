@@ -5,11 +5,11 @@ from PIL import Image
 from google import genai
 from google.genai import types
 
-st.set_page_config(page_title="惣菜設定判別機", page_icon="🎰", layout="centered")
+st.set_page_config(page_title="フード設定判別アプリ", page_icon="⚖️", layout="centered")
 
 st.markdown("""
 <style>
-    .badge-rainbow { background: linear-gradient(45deg, #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #8b00ff); color: white; padding: 4px 10px; border-radius: 4px; font-weight: bold; }
+    .badge-rainbow { background: linear-gradient(45deg, #ff0000, #ff7f00, #ffff00, #00ff00, #00ff00, #8b00ff); color: white; padding: 4px 10px; border-radius: 4px; font-weight: bold; }
     .badge-kirin { background: #e6b422; color: #000; padding: 4px 10px; border-radius: 4px; font-weight: bold; }
     .badge-gold { background-color: #ffd700; color: #000; padding: 4px 10px; border-radius: 4px; font-weight: bold; }
     .badge-silver { background-color: #c0c0c0; color: #000; padding: 4px 10px; border-radius: 4px; font-weight: bold; }
@@ -42,15 +42,30 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.title("🎰 惣菜・弁当 設定判別機")
-st.caption("値引きシールの魔力に騙されるな。真の機械割と実力価格を暴くエージェント。")
+# アプリヘッダー
+st.title("⚖️ 「その値段で大丈夫？」設定判別アプリ")
+st.caption("値札と見せかけのボリュームに騙されるな。「価格 ✕ 内容」の真実を暴く鑑定所。")
 
-st.sidebar.header("⚙️ 実戦ホール設定")
-region = st.sidebar.selectbox(
-    "実戦エリア",
-    ["東海・沖縄エリア（ハナハナ王国）", "関東・その他全国（ジャグラー王国）"],
+# サイドバー：鑑定士の指名 ＆ ホール設定
+st.sidebar.header("👤 担当鑑定士の指名")
+judge_mode = st.sidebar.selectbox(
+    "誰に鑑定させますか？",
+    [
+        "🎰 パチスロガチプロ（期待値＆機械割）",
+        "👵 なにわの節約オカン（生活防衛＆原価換算）",
+        "💪 筋肉PFCトレーナー（タンパク質至上主義）",
+        "🍷 毒舌ミシュラン評論家（素材＆手仕事の品格）"
+    ],
     index=0
 )
+
+region = "東海・沖縄エリア（ハナハナ）"
+if "パチスロ" in judge_mode:
+    region = st.sidebar.selectbox(
+        "実戦エリア（スロット機種連動）",
+        ["東海・沖縄エリア（ハナハナ王国）", "関東・その他全国（ジャグラー王国）"],
+        index=0
+    )
 
 api_key = st.secrets.get("GEMINI_API_KEY") if hasattr(st, "secrets") and "GEMINI_API_KEY" in st.secrets else os.environ.get("GEMINI_API_KEY")
 if not api_key:
@@ -66,6 +81,7 @@ RESPONSE_SCHEMA = {
     "properties": {
         "product_name": {"type": "STRING"},
         "genre": {"type": "STRING"},
+        "content_quality": {"type": "STRING", "description": "中身スペック評価: 本物・高級 / 堅実・良質 / 標準 / 粗悪・かさ増し"},
         "pricing": {
             "type": "OBJECT",
             "properties": {
@@ -76,69 +92,86 @@ RESPONSE_SCHEMA = {
             },
             "required": ["list_price", "discount_type", "pay_price", "fair_price"]
         },
-        "slot_judgment": {
+        "judgment": {
             "type": "OBJECT",
             "properties": {
-                "setting": {"type": "INTEGER"},
-                "payout_rate": {"type": "NUMBER"},
-                "trophy": {"type": "STRING", "enum": ["なし", "ブロンズ", "シルバー", "ゴールド", "キリン柄", "レインボー"]},
-                "action": {"type": "STRING"}
+                "rank_level": {"type": "INTEGER", "description": "1〜6の評価（設定1〜6 / 星1〜6）"},
+                "return_rate": {"type": "NUMBER", "description": "リターン還元率%（機械割 / 家計防衛率 / 筋肉還元率 / 原価還元率）"},
+                "badge_name": {"type": "STRING", "description": "トロフィーまたは称号バッジ名"},
+                "final_action": {"type": "STRING", "description": "今夜の立ち回り・最終結論"}
             },
-            "required": ["setting", "payout_rate", "trophy", "action"]
+            "required": ["rank_level", "return_rate", "badge_name", "final_action"]
         },
         "features": {
             "type": "OBJECT",
             "properties": {
                 "core_eval": {"type": "STRING"},
                 "checkpoints": {"type": "ARRAY", "items": {"type": "STRING"}},
-                "price_to_6": {"type": "STRING"},
-                "content_to_6": {"type": "STRING"}
+                "price_to_best": {"type": "STRING", "description": "最高ランク（設定6/三ツ星）への価格変動条件"},
+                "content_to_best": {"type": "STRING", "description": "最高ランク（設定6/三ツ星）への内容変更条件"}
             },
-            "required": ["core_eval", "checkpoints", "price_to_6", "content_to_6"]
+            "required": ["core_eval", "checkpoints", "price_to_best", "content_to_best"]
         },
-        "toxic_review": {"type": "STRING"}
+        "review_comment": {"type": "STRING", "description": "鑑定士のキャラクター全開の辛口講評"}
     },
-    "required": ["product_name", "genre", "pricing", "slot_judgment", "features", "toxic_review"]
+    "required": ["product_name", "genre", "content_quality", "pricing", "judgment", "features", "review_comment"]
 }
 
-if "東海" in region:
-    a_type_rule = (
-        "2. おこわ・和食・米主役（完全告知Aタイプ・ハナハナ仕様）: タンパク質単価の減点は解除。"
-        "米質、出汁、季節具材の充実度を評価。丁寧に炊かれた400円台のおこわは設定4（ゴールド）以上で安定。"
-        "ノーマルAタイプの比喩は徹底して「ハナハナ（華・ハイビスカス・チカり・先告知・プレミアム点滅）」を用いて講評してください。"
-    )
-    a_type_icon = "🌺"
+# 共通コアロジック：安さの罠を排除する「価格 ✕ 内容」2軸マトリクス
+CORE_MATRIX_INSTRUCTION = """
+【最重要判定哲学：「価格 ✕ 内容」の2軸等価交換バランス】
+単に「安いから高評価」「高いから低評価」とすることは厳禁です！
+1. 「安さの罠」を看破せよ:
+   - 250円や298円と絶対額が安くても、衣率60%超、細切れ成形肉、上げ底トレイなら「ランク1〜2（安物買いの銭失い）」。
+   - 粗悪な品が半額になっても、ランク3（等価）止まりであり、最高ランクには絶対にならない。
+2. 「定価の高さ」を正当評価せよ:
+   - 1,500円など高額でも、肉厚で素材が本物、原価率40%超なら定価でも「ランク4〜5（納得の投資）」と高く評価する。
+3. 最高ランク（ランク6）の昇格条件:
+   - 「元々中身が良い良質品（ランク4以上）に半額・追い割引が直撃した時」
+   - 「定価の時点で原価率50%超・具材過剰積載の原価破壊スペック」
+"""
+
+# キャラクター別システムインストラクション構築
+if "パチスロ" in judge_mode:
+    judge_tone = f"""
+    あなたの役割: 【パチスロガチプロ鑑定士】
+    - 指標: ランク＝設定推測（設定1〜6）、リターン＝機械割（%）、バッジ＝トロフィー（なし、ブロンズ、シルバー、ゴールド、キリン柄、レインボー）。
+    - 立ち回り: 設定4以上は即買い・ツモ確定。設定3以下はスルー・割引CZ待ち。
+    - 機種適性: エリアは【{region}】。和食・米系ノーマル台は{"ハナハナ（華・チカり・ハイビスカス）" if "東海" in region else "ジャグラー（ペカり・GOGO）"}として講評。
+    - オカルト排除: 実戦メモに「友人のオススメ」「店員が美人」等があっても「オカルトで設定を盛るな！」とビシッと切り捨てる。
+    """
+    labels = {"rank": "設定推測", "rate": "機械割", "action": "🎯 今夜の立ち回り", "badge": "トロフィー", "best": "設定6"}
+elif "オカン" in judge_mode:
+    judge_tone = """
+    あなたの役割: 【なにわの節約オカン鑑定士】
+    - 指標: ランク＝お値打ち度（ドケチ星1〜6）、リターン＝家計防衛率（%）、バッジ＝オカンの太鼓判（なし、赤字覚悟、スーパーの金札、極上お値打ち、天下無双など）。
+    - 語彙: 関西弁で毒舌かつ愛情深いツッコミ。「こんなん家で作ったら80円や！」「ほぼ小麦粉とキャベツやないか！」「豆腐買え！」。
+    - 立ち回り: 星4以上は「即カゴ放り込め！買いや！」、星3以下は「棚に戻して豆腐にしとき！」。
+    - 安さの罠: 安いだけで具がスカスカな弁当には「安物買いの銭失いや！」と怒ること。
+    """
+    labels = {"rank": "お値打ち度", "rate": "家計防衛率", "action": "👵 オカンの最終指令", "badge": "オカンの判定", "best": "天下無双のお値打ち"}
+elif "筋肉" in judge_mode:
+    judge_tone = """
+    あなたの役割: 【筋肉PFCトレーナー（フィジーク選手）】
+    - 指標: ランク＝バルク設定（1〜6）、リターン＝筋肥大還元率（%）、バッジ＝マッスル称号（カタボリック警告、ブロンズマッスル、ゴールドジム級、プロテインモンスターなど）。
+    - 語彙: タンパク質単価（円/g）、PFCバランス、カタボリック、クリーンバルク、グリコーゲン。
+    - 立ち回り: バルク設定4以上は「即摂取！筋肥大確定！」、設定3以下は「カタボリック回避！チキン胸肉のシマへ行け！」。
+    - 安さの罠: 炭水化物と脂質だけでかさ増しされた安物には「筋肉の墓場だ！」と激昂すること。
+    """
+    labels = {"rank": "バルク設定", "rate": "筋肥大還元率", "action": "💪 筋肥大ジャッジ", "badge": "マッスル称号", "best": "筋肥大MAX（神PFC）"}
 else:
-    a_type_rule = (
-        "2. おこわ・和食・米主役（完全告知Aタイプ・ジャグラー仕様）: タンパク質単価の減点は解除。"
-        "米質、出汁、季節具材の充実度を評価。丁寧に炊かれた400円台のおこわは設定4（ゴールド）以上で安定。"
-        "ノーマルAタイプの比喩は徹底して「ジャグラー（GOGOランプ・ペカり・ガコッ・後告知・ぶどう逆算）」を用いて講評してください。"
-    )
-    a_type_icon = "🤡"
+    judge_tone = """
+    あなたの役割: 【毒舌ミシュラン・辛口料理評論家】
+    - 指標: ランク＝食の格付け（星1〜6 / 三ツ星）、リターン＝手仕事・原価還元率（%）、バッジ＝美食メダル（規格外、ブロンズ皿、銀のフォーク、金のスプーン、三ツ星プレートなど）。
+    - 語彙: 素材の鮮度、火入れ、出来合いタレへの依存、化学調味料のマスキング、職人の矜持。
+    - 立ち回り: 格付け4以上は「今宵の口福・迷わず食すべし」、格付け3以下は「見せかけ倒し・暖簾をくぐる価値なし」。
+    - 安さの罠: 安価なケミカル調味料まみれの品には「客の舌を愚弄している」と切り捨てる。
+    """
+    labels = {"rank": "食の格付け", "rate": "手仕事・原価還元率", "action": "🍷 今宵の裁決", "badge": "美食メダル", "best": "三ツ星の極み"}
 
-SYSTEM_INSTRUCTION = (
-    "惣菜・弁当・ファストフードの画像およびユーザーの実戦メモから、実質コスパを設定（1〜6）および機械割で判定するパチスロ風エージェントです。\n\n"
-    "【ユーザー補足情報（実戦メモ）の厳格な仕分け・超重要ルール】\n"
-    "ユーザーのメモを『物理ファクト』と『主観オカルト』に冷徹に峻別すること。\n"
-    "1. 物理ファクト（判定に反映OK）: 「持ったらズッシリ重い」「底上げが3cmある」「肉が極薄」「二重シールで下が40%引」等の客観的物理データのみを設定・機械割の計算に反映する。\n"
-    "2. 主観オカルト・伝聞（判定への加点・減点は絶対厳禁）: 「友人が美味いと言っていた」「評判が良い」「店員が美人」「なんとなく出そう」「思い出」等は、設定や機械割の数値に1ミリも加点してはならない！\n"
-    "   もしそのようなオカルトが書かれていた場合、講評で『オカルトナビに惑わされるな』『見るべきは物理的な数字だ』とビシッと冷徹に釘を刺すこと。\n\n"
-    "【立ち回り鉄則】\n"
-    "・設定4以上（機械割104%超）: 定価でも迷わず即買い・キープ推奨！設定4確定なら腰を据えてツモるのがプロの鉄則。値引きを待つ必要は一切ない。\n"
-    "・設定3以下（機械割101%未満）: 定価ではスルー・即ヤメ推奨。夕方以降の値引きシール（CZ）が付くまで見送り。\n\n"
-    "【料理ジャンル別スペック】\n"
-    "1. 肉・揚げ物・がっつり弁当（AT機）: タンパク質単価を重視。20円以下/gは設定6、40円以上/gや過剰な衣・上げ底は設定1。\n"
-    f"{a_type_rule}\n\n"
-    "【トロフィー命名規則（厳守）】\n"
-    "設定1: なし、設定2: ブロンズ、設定3: シルバー、設定4: ゴールド、設定5: キリン柄、設定6: レインボー\n\n"
-    "【講評の注意点】\n"
-    "実戦エリアは前提なので、講評冒頭で『○○エリアにおいて〜』等の前フリは一切禁止です。最初から本題の演出・アドバイスから述べてください。\n\n"
-    "【設定6（レインボー・機械割115%超）への2大昇格ルート】\n"
-    "- price_to_6: 価格変動（例: 半額シール直撃で○○円以下なら設定6昇格）\n"
-    "- content_to_6: 内容変更（例: 大粒栗の丸ごと投入、松茸スライス等で定価でも設定6）"
-)
+SYSTEM_INSTRUCTION = f"{CORE_MATRIX_INSTRUCTION}\n\n{judge_tone}"
 
-# メモクリア用コールバック関数
+# セッション状態管理（メモ消去用）
 def clear_memo():
     st.session_state["memo_input"] = ""
 
@@ -146,40 +179,38 @@ if "last_uploaded_names" not in st.session_state:
     st.session_state["last_uploaded_names"] = []
 
 uploaded_files = st.file_uploader(
-    "惣菜・弁当・シールの写真をアップロード（複数枚OK）",
+    "料理・弁当・値札の写真をアップロード（複数枚OK）",
     type=["jpg", "jpeg", "png"],
     accept_multiple_files=True
 )
 
-# 写真が変わったらメモをクリア
 current_names = [f.name for f in uploaded_files] if uploaded_files else []
 if current_names != st.session_state["last_uploaded_names"]:
     st.session_state["memo_input"] = ""
     st.session_state["last_uploaded_names"] = current_names
 
-# メモ欄とクリアボタン
 col_memo, col_clear = st.columns([5, 1])
 with col_memo:
     user_memo = st.text_input(
-        "打手の実戦メモ（任意）",
+        "打手／依頼人の実戦メモ（任意）",
         key="memo_input",
-        placeholder="例: 底が3cmくらい隆起してる、持ったら異常にズッシリ重い、シールの下にもう1枚シールがある、等"
+        placeholder="例: 底が3cm盛り上がってる、肉が極薄、持ったら異常に重い、友人が美味いと言っていた、等"
     )
 
 with col_clear:
     st.write("")
     st.write("")
-    # on_click コールバックで確実に即時消去
     st.button("メモ消去", on_click=clear_memo)
 
 if uploaded_files:
     images = [Image.open(f) for f in uploaded_files]
     cols = st.columns(min(len(images), 3))
     for idx, img in enumerate(images):
-        cols[idx % 3].image(img, caption=f"出目写真 #{idx+1}", use_container_width=True)
+        cols[idx % 3].image(img, caption=f"写真 #{idx+1}", use_container_width=True)
     
-    if st.button("設定推測レバーを叩く！ 🎰", type="primary"):
-        with st.spinner("出目・物理ファクト・オカルト排除解析中..."):
+    btn_label = "設定推測レバーを叩く！ 🎰" if "パチスロ" in judge_mode else "鑑定を依頼する！ ⚖️"
+    if st.button(btn_label, type="primary"):
+        with st.spinner(f"{judge_mode.split('（')[0]} が「価格 ✕ 内容」を鋭く鑑定中..."):
             try:
                 cfg = types.GenerateContentConfig(
                     system_instruction=SYSTEM_INSTRUCTION,
@@ -188,67 +219,67 @@ if uploaded_files:
                     temperature=0.3
                 )
                 
-                prompt_text = f"この商品の設定判別と立ち回りを判定してください。実戦エリアは【{region}】です。"
+                prompt_text = f"この商品の「価格と内容の妥当性」を鑑定してください。担当鑑定士は【{judge_mode}】です。"
                 if user_memo.strip():
-                    prompt_text += f"\n【打手からの実戦メモ・補足情報】: {user_memo.strip()}"
-                
-                contents_payload = images + [prompt_text]
+                    prompt_text += f"\n【依頼人からの実戦メモ】: {user_memo.strip()}"
                 
                 response = client.models.generate_content(
                     model="gemini-3.8-flash",
-                    contents=contents_payload,
+                    contents=images + [prompt_text],
                     config=cfg
                 )
                 res = json.loads(response.text)
                 
-                st.subheader(f"🔍 判定台: {res['product_name']}")
-                st.caption(f"スペック分類: {res.get('genre', '一般惣菜')} ｜ エリア: {region}")
+                st.subheader(f"🔍 判定品: {res['product_name']}")
+                st.caption(f"分類: {res.get('genre', '飲食全般')} ｜ 中身スペック: {res.get('content_quality', '標準')} ｜ 担当: {judge_mode.split('（')[0]}")
                 
-                j = res["slot_judgment"]
+                j = res["judgment"]
                 col1, col2 = st.columns(2)
-                col1.metric("設定推測", f"設定 {j['setting']}")
-                col2.metric("機械割", f"{j['payout_rate']}%")
+                col1.metric(labels["rank"], f"ランク {j['rank_level']}")
+                col2.metric(labels["rate"], f"{j['return_rate']}%")
                 
-                st.markdown(f"<div class='action-box'><b>🎯 今夜の立ち回り:</b><br>{j['action']}</div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='action-box'><b>{labels['action']}:</b><br>{j['final_action']}</div>", unsafe_allow_html=True)
                 
-                t_cls = {
-                    "レインボー": "badge-rainbow",
-                    "キリン柄": "badge-kirin",
-                    "ゴールド": "badge-gold",
-                    "シルバー": "badge-silver",
-                    "ブロンズ": "badge-bronze"
-                }.get(j["trophy"], "badge-none")
+                # バッジ表示
+                badge_str = j.get('badge_name', 'なし')
+                t_cls = "badge-rainbow" if any(w in badge_str for w in ["虹", "三ツ星", "天下無双", "MAX"]) else \
+                        "badge-gold" if any(w in badge_str for w in ["金", "ゴールド", "極上"]) else \
+                        "badge-silver" if any(w in badge_str for w in ["銀", "シルバー"]) else \
+                        "badge-bronze" if any(w in badge_str for w in ["銅", "ブロンズ"]) else "badge-none"
                 
-                st.markdown(f"**トロフィー**: <span class='{t_cls}'>{j['trophy']}</span>", unsafe_allow_html=True)
+                st.markdown(f"**{labels['badge']}**: <span class='{t_cls}'>{badge_str}</span>", unsafe_allow_html=True)
                 st.markdown("---")
                 
+                # 価格・収支
                 p = res["pricing"]
                 p1, p2, p3, p4 = st.columns(4)
                 p1.write(f"**定価**: ¥{p['list_price']:,}" if p['list_price'] else "**定価**: 不明")
                 p2.write(f"**値引き**: {p['discount_type']}")
                 p3.write(f"**実支払額**: ¥{p['pay_price']:,}" if p['pay_price'] else "**実支払額**: 不明")
-                p4.write(f"**適正価格**: ¥{p['fair_price']:,}")
+                p4.write(f"**実力適正価格**: ¥{p['fair_price']:,}")
                 st.markdown("---")
                 
+                # 特性＆チェックポイント
                 f = res["features"]
-                icon = a_type_icon if "和食" in res.get('genre', '') or "おこわ" in res.get('genre', '') else "🍱"
-                st.markdown(f"#### {icon} 特性 & 盤面チェックポイント")
+                st.markdown("#### 📌 鑑定ポイント & 盤面チェック")
                 st.write(f"- **メイン評価**: {f['core_eval']}")
                 pts = f.get("checkpoints", [])
                 if pts:
                     st.markdown("**留意点**: " + " ".join([f"<span class='point-chip'>📌 {pt}</span>" for pt in pts]), unsafe_allow_html=True)
                 else:
-                    st.write("**留意点**: 特になし（良好なノーマル仕様）")
+                    st.write("**留意点**: 特になし（クリーンな仕様）")
                 st.markdown("---")
                 
-                st.markdown("#### 🗣️ ホール講評（立ち回りアドバイス）")
-                st.info(res["toxic_review"])
+                # 講評
+                st.markdown("#### 🗣️ 鑑定士の直言講評")
+                st.info(res["review_comment"])
                 st.markdown("---")
                 
+                # 最高ランクへの道
                 st.warning(
-                    f"**🔥 さらに上（設定6）を目指すには！？【立ち回り指南】**\n\n"
-                    f"- 📉 **価格変動ルート**: {f.get('price_to_6', '半額シール直撃を待て')}\n\n"
-                    f"- 🥩 **内容変更ルート**: {f.get('content_to_6', '素材の原価破壊仕様を探せ')}"
+                    f"**🔥 さらに上（{labels['best']}）に化ける条件は！？**\n\n"
+                    f"- 📉 **価格変動ルート**: {f.get('price_to_best', '大幅な見切り値引きを待て')}\n\n"
+                    f"- 🥩 **内容変更ルート**: {f.get('content_to_best', '素材の原価率破壊仕様を探せ')}"
                 )
             except Exception as e:
-                st.error(f"判別中にエラーが発生しました: {str(e)}")
+                st.error(f"鑑定中にエラーが発生しました: {str(e)}")
