@@ -9,13 +9,26 @@ st.set_page_config(page_title="惣菜設定判別機", page_icon="🎰", layout=
 
 st.markdown("""
 <style>
-    .badge-rainbow { background: linear-gradient(45deg, #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #8b00ff); color: white; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
-    .badge-kirin { background: #e6b422; color: #000; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
-    .badge-gold { background-color: #ffd700; color: #000; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
-    .badge-silver { background-color: #c0c0c0; color: #000; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
-    .badge-bronze { background-color: #cd7f32; color: white; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
-    .badge-none { background-color: #444; color: #aaa; padding: 4px 8px; border-radius: 4px; }
-    .point-chip { background-color: #2b2d42; color: #edf2f4; border: 1px solid #4a4e69; padding: 2px 8px; border-radius: 4px; font-size: 0.85em; margin-right: 5px; display: inline-block; }
+    /* トロフィーバッジ（名称統一） */
+    .badge-rainbow { background: linear-gradient(45deg, #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #8b00ff); color: white; padding: 4px 10px; border-radius: 4px; font-weight: bold; }
+    .badge-kirin { background: #e6b422; color: #000; padding: 4px 10px; border-radius: 4px; font-weight: bold; }
+    .badge-gold { background-color: #ffd700; color: #000; padding: 4px 10px; border-radius: 4px; font-weight: bold; }
+    .badge-silver { background-color: #c0c0c0; color: #000; padding: 4px 10px; border-radius: 4px; font-weight: bold; }
+    .badge-bronze { background-color: #cd7f32; color: white; padding: 4px 10px; border-radius: 4px; font-weight: bold; }
+    .badge-none { background-color: #33333e; color: #888; padding: 4px 10px; border-radius: 4px; }
+    
+    /* 留意点：警告色を完全排除し、落ち着いたダークグレー基調に */
+    .point-chip {
+        background-color: #262730;
+        color: #cfd2dc;
+        border: 1px solid #3d4051;
+        padding: 3px 10px;
+        border-radius: 4px;
+        font-size: 0.88em;
+        margin-right: 6px;
+        margin-bottom: 6px;
+        display: inline-block;
+    }
     
     /* 立ち回り表示用バナー */
     .action-box {
@@ -35,7 +48,7 @@ st.markdown("""
 st.title("🎰 惣菜・弁当 設定判別機")
 st.caption("値引きシールの魔力に騙されるな。真の機械割と実力価格を暴くエージェント。")
 
-# サイドバー設定（地域選択 & APIキー）
+# サイドバー設定
 st.sidebar.header("⚙️ 実戦ホール設定")
 region = st.sidebar.selectbox(
     "実戦エリア",
@@ -72,7 +85,7 @@ RESPONSE_SCHEMA = {
             "properties": {
                 "setting": {"type": "INTEGER"},
                 "payout_rate": {"type": "NUMBER"},
-                "trophy": {"type": "STRING"},
+                "trophy": {"type": "STRING", "enum": ["なし", "ブロンズ", "シルバー", "ゴールド", "キリン柄", "レインボー"]},
                 "action": {"type": "STRING"}
             },
             "required": ["setting", "payout_rate", "trophy", "action"]
@@ -92,34 +105,38 @@ RESPONSE_SCHEMA = {
     "required": ["product_name", "genre", "pricing", "slot_judgment", "features", "toxic_review"]
 }
 
-# 選択エリアに応じたプロンプト分岐
 if "東海" in region:
     a_type_rule = (
         "2. おこわ・和食・米主役（完全告知Aタイプ・ハナハナ仕様）: タンパク質単価の減点は解除。"
-        "米質、出汁、季節具材の充実度を評価。丁寧に炊かれた400円台のおこわは設定4（金示唆）以上で安定。"
-        "【地域特性】ユーザーは東海・沖縄のハナハナ文化圏です。ノーマルAタイプの比喩は徹底して「ハナハナ（華・ハイビスカス・チカり・先告知・プレミアム点滅）」を用いて講評してください。"
+        "米質、出汁、季節具材の充実度を評価。丁寧に炊かれた400円台のおこわは設定4（ゴールド）以上で安定。"
+        "ノーマルAタイプの比喩は徹底して「ハナハナ（華・ハイビスカス・チカり・先告知・プレミアム点滅）」を用いて講評してください。"
     )
     a_type_icon = "🌺"
 else:
     a_type_rule = (
         "2. おこわ・和食・米主役（完全告知Aタイプ・ジャグラー仕様）: タンパク質単価の減点は解除。"
-        "米質、出汁、季節具材の充実度を評価。丁寧に炊かれた400円台のおこわは設定4（金示唆）以上で安定。"
-        "【地域特性】ユーザーは関東・全国のジャグラー文化圏です。ノーマルAタイプの比喩は徹底して「ジャグラー（GOGOランプ・ペカり・ガコッ・後告知・ぶどう逆算）」を用いて講評してください。"
+        "米質、出汁、季節具材の充実度を評価。丁寧に炊かれた400円台のおこわは設定4（ゴールド）以上で安定。"
+        "ノーマルAタイプの比喩は徹底して「ジャグラー（GOGOランプ・ペカり・ガコッ・後告知・ぶどう逆算）」を用いて講評してください。"
     )
     a_type_icon = "🤡"
 
 SYSTEM_INSTRUCTION = (
     "惣菜・弁当の画像から実質コスパを設定（1〜6）および機械割で判定するパチスロ風エージェントです。\n\n"
-    "【立ち回り鉄則（最重要）】\n"
+    "【立ち回り鉄則】\n"
     "・設定4以上（機械割104%超）: 定価でも迷わず即買い・キープ推奨！設定4確定なら腰を据えてツモるのがプロの鉄則。値引きを待つ必要は一切ない。\n"
     "・設定3以下（機械割101%未満）: 定価ではスルー・即ヤメ推奨。夕方以降の値引きシール（CZ）が付くまで見送り。\n\n"
     "【料理ジャンル別スペック】\n"
     "1. 肉・揚げ物・がっつり弁当（AT機）: タンパク質単価を重視。20円以下/gは設定6、40円以上/gや過剰な衣・上げ底は設定1。\n"
     f"{a_type_rule}\n\n"
-    "【設定6（虹・機械割115%超）への2大昇格ルート】\n"
+    "【トロフィー命名規則（厳守）】\n"
+    "設定1: なし、設定2: ブロンズ、設定3: シルバー、設定4: ゴールド、設定5: キリン柄、設定6: レインボー\n\n"
+    "【講評の注意点（超重要）】\n"
+    "実戦エリア（ハナハナかジャグラーか）はユーザーが選択済みであり自明の前提なので、"
+    "講評の冒頭で『東海・沖縄のハナハナ王国において〜』『関東ジャグラー圏において〜』といった前フリ・説明文は一切書かないでください。"
+    "最初からその機種の世界観に入り込んで直接本題・毒舌アドバイスを述べてください。\n\n"
+    "【設定6（レインボー・機械割115%超）への2大昇格ルート】\n"
     "- price_to_6: 価格変動（例: 半額シール直撃で○○円以下なら設定6昇格）\n"
-    "- content_to_6: 内容変更（例: 大粒栗の丸ごと投入、松茸スライス等で定価でも設定6）\n"
-    "トロフィーは 虹(6), キリン柄(5), 金(4), 銀(3), 銅(2), 示唆なし(1) から選定し、毒舌ながらも的確な立ち回り講評を出力してください。"
+    "- content_to_6: 内容変更（例: 大粒栗の丸ごと投入、松茸スライス等で定価でも設定6）"
 )
 
 uploaded_file = st.file_uploader("惣菜・弁当・シールの写真をアップロード", type=["jpg", "jpeg", "png"])
@@ -139,7 +156,7 @@ if uploaded_file is not None:
                 )
                 response = client.models.generate_content(
                     model="gemini-3.8-flash",
-                    contents=[image, f"この商品の設定判別と立ち回りを判定してください。実戦エリアは【{region}】です。設定4以上は即買い推奨です。"],
+                    contents=[image, f"この商品の設定判別と立ち回りを判定してください。実戦エリアは【{region}】です。"],
                     config=cfg
                 )
                 res = json.loads(response.text)
@@ -149,18 +166,27 @@ if uploaded_file is not None:
                 
                 j = res["slot_judgment"]
                 
-                # 設定と機械割をスッキリ2列で表示
+                # 「設定推測」「機械割」表示
                 col1, col2 = st.columns(2)
-                col1.metric("推定設定", f"設定 {j['setting']}")
+                col1.metric("設定推測", f"設定 {j['setting']}")
                 col2.metric("機械割", f"{j['payout_rate']}%")
                 
-                # 立ち回りは切れないように専用バナーで全文表示
+                # 立ち回り表示
                 st.markdown(f"<div class='action-box'><b>🎯 今夜の立ち回り:</b><br>{j['action']}</div>", unsafe_allow_html=True)
                 
-                t_cls = {"虹": "badge-rainbow", "キリン柄": "badge-kirin", "金": "badge-gold", "銀": "badge-silver", "銅": "badge-bronze"}.get(j["trophy"], "badge-none")
-                st.markdown(f"**確定演出・示唆**: <span class='{t_cls}'>{j['trophy']}示唆</span>", unsafe_allow_html=True)
+                # トロフィー表示
+                t_cls = {
+                    "レインボー": "badge-rainbow",
+                    "キリン柄": "badge-kirin",
+                    "ゴールド": "badge-gold",
+                    "シルバー": "badge-silver",
+                    "ブロンズ": "badge-bronze"
+                }.get(j["trophy"], "badge-none")
+                
+                st.markdown(f"**トロフィー**: <span class='{t_cls}'>{j['trophy']}</span>", unsafe_allow_html=True)
                 st.markdown("---")
                 
+                # 価格・収支
                 p = res["pricing"]
                 p1, p2, p3, p4 = st.columns(4)
                 p1.write(f"**定価**: ¥{p['list_price']:,}" if p['list_price'] else "**定価**: 不明")
@@ -169,6 +195,7 @@ if uploaded_file is not None:
                 p4.write(f"**適正価格**: ¥{p['fair_price']:,}")
                 st.markdown("---")
                 
+                # 特性＆チェックポイント（落ち着いたピンチップ）
                 f = res["features"]
                 icon = a_type_icon if "和食" in res.get('genre', '') or "おこわ" in res.get('genre', '') else "🍱"
                 st.markdown(f"#### {icon} 特性 & 盤面チェックポイント")
@@ -180,10 +207,12 @@ if uploaded_file is not None:
                     st.write("**留意点**: 特になし（良好なノーマル仕様）")
                 st.markdown("---")
                 
+                # 講評
                 st.markdown("#### 🗣️ ホール講評（立ち回りアドバイス）")
                 st.info(res["toxic_review"])
                 st.markdown("---")
                 
+                # 設定6への道
                 st.warning(
                     f"**🔥 さらに上（設定6）を目指すには！？【立ち回り指南】**\n\n"
                     f"- 📉 **価格変動ルート**: {f.get('price_to_6', '半額シール直撃を待て')}\n\n"
