@@ -117,12 +117,12 @@ else:
     a_type_icon = "🤡"
 
 SYSTEM_INSTRUCTION = (
-    "惣菜・弁当の画像およびユーザーの実戦メモから、実質コスパを設定（1〜6）および機械割で判定するパチスロ風エージェントです。\n\n"
+    "惣菜・弁当・ファストフードの画像およびユーザーの実戦メモから、実質コスパを設定（1〜6）および機械割で判定するパチスロ風エージェントです。\n\n"
     "【ユーザー補足情報（実戦メモ）の厳格な仕分け・超重要ルール】\n"
     "ユーザーのメモを『物理ファクト』と『主観オカルト』に冷徹に峻別すること。\n"
     "1. 物理ファクト（判定に反映OK）: 「持ったらズッシリ重い」「底上げが3cmある」「肉が極薄」「二重シールで下が40%引」等の客観的物理データのみを設定・機械割の計算に反映する。\n"
-    "2. 主観オカルト・伝聞（判定への加点・減点は絶対厳禁）: 「友人が美味いと言っていた」「評判が良い」「店員が美人」「なんとなく出そう」「テレビで見た」等は、設定や機械割の数値に1ミリも加点してはならない！\n"
-    "   もしそのようなオカルトが書かれていた場合、講評で『連れのオススメという名のガセナビに惑わされるな』『味の感想というオカルトで設定を盛るな、見るべきは肉量と価格の数字だ』とビシッと冷徹に釘を刺すこと。\n\n"
+    "2. 主観オカルト・伝聞（判定への加点・減点は絶対厳禁）: 「友人が美味いと言っていた」「評判が良い」「店員が美人」「なんとなく出そう」「思い出」等は、設定や機械割の数値に1ミリも加点してはならない！\n"
+    "   もしそのようなオカルトが書かれていた場合、講評で『オカルトナビに惑わされるな』『見るべきは物理的な数字だ』とビシッと冷徹に釘を刺すこと。\n\n"
     "【立ち回り鉄則】\n"
     "・設定4以上（機械割104%超）: 定価でも迷わず即買い・キープ推奨！設定4確定なら腰を据えてツモるのがプロの鉄則。値引きを待つ必要は一切ない。\n"
     "・設定3以下（機械割101%未満）: 定価ではスルー・即ヤメ推奨。夕方以降の値引きシール（CZ）が付くまで見送り。\n\n"
@@ -138,8 +138,10 @@ SYSTEM_INSTRUCTION = (
     "- content_to_6: 内容変更（例: 大粒栗の丸ごと投入、松茸スライス等で定価でも設定6）"
 )
 
-if "user_memo_val" not in st.session_state:
-    st.session_state["user_memo_val"] = ""
+# メモクリア用コールバック関数
+def clear_memo():
+    st.session_state["memo_input"] = ""
+
 if "last_uploaded_names" not in st.session_state:
     st.session_state["last_uploaded_names"] = []
 
@@ -149,27 +151,26 @@ uploaded_files = st.file_uploader(
     accept_multiple_files=True
 )
 
+# 写真が変わったらメモをクリア
 current_names = [f.name for f in uploaded_files] if uploaded_files else []
 if current_names != st.session_state["last_uploaded_names"]:
-    st.session_state["user_memo_val"] = ""
+    st.session_state["memo_input"] = ""
     st.session_state["last_uploaded_names"] = current_names
 
+# メモ欄とクリアボタン
 col_memo, col_clear = st.columns([5, 1])
 with col_memo:
     user_memo = st.text_input(
         "打手の実戦メモ（任意）",
-        value=st.session_state["user_memo_val"],
         key="memo_input",
         placeholder="例: 底が3cmくらい隆起してる、持ったら異常にズッシリ重い、シールの下にもう1枚シールがある、等"
     )
-    st.session_state["user_memo_val"] = user_memo
 
 with col_clear:
     st.write("")
     st.write("")
-    if st.button("メモ消去"):
-        st.session_state["user_memo_val"] = ""
-        st.rerun()
+    # on_click コールバックで確実に即時消去
+    st.button("メモ消去", on_click=clear_memo)
 
 if uploaded_files:
     images = [Image.open(f) for f in uploaded_files]
