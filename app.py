@@ -1,4 +1,4 @@
-SyntaxError: expected 'except' or 'finally' block は、GitHub上でコードを貼り付けた際に、117行目の trophy = j["trophy"] の途中で切れてしまい、それ以降のコード（except や画面描画処理）が丸ごと欠落してしまったことが原因です。   GitHubのWebエディタで貼り付ける際、長いコードだと末尾が欠けるトラブルを防ぐため、無駄な装飾や長いプロンプトを徹底的にスリム化し、行数を半分近くまで圧縮した軽量・安全版コードを用意しました。以下のコードをコピーし、GitHubの app.py の中身を全選択して消去した上で、そのまま貼り付けて保存（Commit changes）してください。軽量・安定版 app.py（全115行）Pythonimport os
+import os
 import json
 import streamlit as st
 from PIL import Image
@@ -11,10 +11,10 @@ st.markdown("""
 <style>
     .badge-rainbow { background: linear-gradient(45deg, #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #8b00ff); color: white; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
     .badge-kirin { background: #e6b422; color: #000; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
-    .badge-gold { background: #ffd700; color: #000; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
-    .badge-silver { background: #c0c0c0; color: #000; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
-    .badge-bronze { background: #cd7f32; color: white; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
-    .badge-none { background: #444; color: #aaa; padding: 4px 8px; border-radius: 4px; }
+    .badge-gold { background-color: #ffd700; color: #000; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
+    .badge-silver { background-color: #c0c0c0; color: #000; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
+    .badge-bronze { background-color: #cd7f32; color: white; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
+    .badge-none { background-color: #444; color: #aaa; padding: 4px 8px; border-radius: 4px; }
     .trap-chip { background: #4a1515; color: #ff8888; border: 1px solid #aa3333; padding: 2px 6px; border-radius: 4px; font-size: 0.85em; margin-right: 4px; }
 </style>
 """, unsafe_allow_html=True)
