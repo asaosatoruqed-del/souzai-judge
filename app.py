@@ -16,7 +16,7 @@ st.markdown("""
     .badge-bronze { background-color: #cd7f32; color: white; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
     .badge-none { background: #444; color: #aaa; padding: 4px 8px; border-radius: 4px; }
     .trap-chip { background: #4a1515; color: #ff8888; border: 1px solid #aa3333; padding: 2px 6px; border-radius: 4px; font-size: 0.85em; margin-right: 4px; }
-    .guide-box { background-color: #1a1a24; border-left: 4px solid #ffd700; padding: 10px 14px; border-radius: 4px; margin-bottom: 15px; font-size: 0.9em; }
+    .guide-box { background-color: #1a1a24; border-left: 4px solid #ffd700; padding: 10px 14px; border-radius: 4px; margin-bottom: 15px; font-size: 0.9em; color: #f0f0f5;}
 </style>
 """, unsafe_allow_html=True)
 
