@@ -14,13 +14,23 @@ st.markdown("""
     .badge-gold { background-color: #ffd700; color: #000; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
     .badge-silver { background-color: #c0c0c0; color: #000; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
     .badge-bronze { background-color: #cd7f32; color: white; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
-    .badge-none { background-color: #444; color: #aaa; padding: 4px 8px; border-radius: 4px; }
+    .badge-none { background: #444; color: #aaa; padding: 4px 8px; border-radius: 4px; }
     .trap-chip { background: #4a1515; color: #ff8888; border: 1px solid #aa3333; padding: 2px 6px; border-radius: 4px; font-size: 0.85em; margin-right: 4px; }
+    .guide-box { background-color: #1a1a24; border-left: 4px solid #ffd700; padding: 10px 14px; border-radius: 4px; margin-bottom: 15px; font-size: 0.9em; }
 </style>
 """, unsafe_allow_html=True)
 
 st.title("🎰 惣菜・弁当 設定判別機")
 st.caption("値引きシールの魔力に騙されるな。真の機械割と実力価格を暴くエージェント。")
+
+# 設定6看破の立ち回りガイド
+st.markdown("""
+<div class="guide-box">
+  <b>💡 設定6（万枚・虹トロフィー）をツモる2大昇格ルート:</b><br>
+  1. <b>価格変動（ハイエナ天井）:</b> 半額シールや重ね貼り値引きで適正価格を大幅に下回った瞬間、機械割115%超のバグ台へ昇格！<br>
+  2. <b>内容変更（原価率破壊）:</b> 大粒具材のゴロゴロ盛り、フタが浮く肉の厚みなど、店の仕入れミス・暴走スペックを見抜く！
+</div>
+""", unsafe_allow_html=True)
 
 api_key = st.secrets.get("GEMINI_API_KEY") if hasattr(st, "secrets") and "GEMINI_API_KEY" in st.secrets else os.environ.get("GEMINI_API_KEY")
 if not api_key:
@@ -60,9 +70,10 @@ RESPONSE_SCHEMA = {
             "type": "OBJECT",
             "properties": {
                 "core_eval": {"type": "STRING"},
+                "setting6_trigger_eval": {"type": "STRING", "description": "設定6への昇格条件（価格変動や内容変更）の充足状況や惜しい点"},
                 "traps": {"type": "ARRAY", "items": {"type": "STRING"}}
             },
-            "required": ["core_eval", "traps"]
+            "required": ["core_eval", "setting6_trigger_eval", "traps"]
         },
         "toxic_review": {"type": "STRING"}
     },
@@ -70,11 +81,15 @@ RESPONSE_SCHEMA = {
 }
 
 SYSTEM_INSTRUCTION = (
-    "惣菜・弁当の画像から実質コスパを設定（1〜6）および機械割で判定するパチスロ風エージェントです。\n"
-    "【重要ルール】料理ジャンルに合わせて判別基準を切り替えてください。\n"
-    "1. 肉・揚げ物・がっつり弁当系（AT機）: タンパク質単価を重視。20円以下/gは設定6、40円以上/gや極端な上げ底・衣過多は設定1。\n"
-    "2. おこわ・炊き込みご飯・助六寿司・和食系（Aタイプ）: タンパク質至上主義を解除。米・もち米の質、出汁、栗や茸などの季節具材の充実度を評価。400円前後で丁寧なおこわは設定4〜5が適正。\n"
-    "トロフィーは 虹(6), キリン柄(5), 金(4), 銀(3), 銅(2), 示唆なし(1) から選定し、スロット用語混じりの毒舌講評を出力してください。"
+    "惣菜・弁当の画像から実質コスパを設定（1〜6）および機械割で判定するパチスロ風エージェントです。\n\n"
+    "【料理ジャンル別スペック】\n"
+    "1. 肉・揚げ物・がっつり弁当系（AT機）: タンパク質単価を重視。20円以下/gは設定6、40円以上/gや過剰な衣・上げ底は設定1。\n"
+    "2. おこわ・炊き込みご飯・助六寿司・和食系（Aタイプ）: タンパク質単価減点を解除。米質、出汁、栗や茸などの季節具材の充実度を評価。400円前後で丁寧なおこわは設定4〜5が適正。\n\n"
+    "【★設定6（虹トロフィー・機械割114.9%以上）への2大昇格トリガー】\n"
+    "以下のいずれか、または両方を満たした場合は無条件で設定6濃厚と判定すること。\n"
+    "・トリガー1【価格変動（天井到達・追い割引）】: 半額シールや値引きシールの重ね貼りにより、実支払額が適正価格の60%以下に暴落している（店の赤字放出）。\n"
+    "・トリガー2【内容変更（原価破壊・フリーズ）】: 大粒栗の丸ごと盛り、松茸や厚切り肉のぎっしり敷き詰め、フタが浮く肉厚など、通常ラインナップを逸脱した過剰スペック。\n\n"
+    "トロフィーは 虹(6), キリン柄(5), 金(4), 銀(3), 銅(2), 示唆なし(1) から選定し、スロット用語混じりの毒舌かつ鋭い立ち回り講評を出力してください。"
 )
 
 uploaded_file = st.file_uploader("惣菜・弁当・シールの写真をアップロード", type=["jpg", "jpeg", "png"])
@@ -84,11 +99,11 @@ if uploaded_file is not None:
     st.image(image, caption="判別対象の台", use_container_width=True)
     
     if st.button("設定推測レバーを叩く！ 🎰", type="primary"):
-        with st.spinner("出目・リール・ジャンル特性を解析中..."):
+        with st.spinner("出目・リール・設定6昇格トリガーを解析中..."):
             try:
                 response = client.models.generate_content(
                     model="gemini-3.8-flash",
-                    contents=[image, "この商品のジャンル特性を考慮して設定と価格妥当性を判別してください。"],
+                    contents=[image, "この商品のジャンル特性、および価格変動・内容変更の設定6昇格トリガーを考慮して設定と価格妥当性を判別してください。"],
                     config=types.GenerateContentConfig(
                         system_instruction=SYSTEM_INSTRUCTION,
                         response_mime_type="application/json",
@@ -120,8 +135,9 @@ if uploaded_file is not None:
                 st.markdown("---")
                 
                 f = res["features"]
-                st.markdown("#### 🍒 特性 & トラップ検知")
-                st.write(f"- **メイン評価**: {f['core_eval']}")
+                st.markdown("#### 🍒 特性 & 設定6トリガー看破")
+                st.write(f"- **基本評価**: {f['core_eval']}")
+                st.write(f"- **設定6への道（価格変動／内容変更）**: {f.get('setting6_trigger_eval', '標準仕様')}")
                 traps = f.get("traps", [])
                 if traps:
                     st.markdown("**検知されたトラップ**: " + " ".join([f"<span class='trap-chip'>⚠️ {t}</span>" for t in traps]), unsafe_allow_html=True)
