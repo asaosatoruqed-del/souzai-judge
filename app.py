@@ -67,12 +67,12 @@ if "パチスロ" in judge_mode:
         index=0
     )
 
+# Secrets または 環境変数から安全にキーを取得
 api_key = st.secrets.get("GEMINI_API_KEY") if hasattr(st, "secrets") and "GEMINI_API_KEY" in st.secrets else os.environ.get("GEMINI_API_KEY")
+
 if not api_key:
-    api_key = st.sidebar.text_input("Gemini API Key を入力", type="password")
-    if not api_key:
-        st.info("サイドバーにGemini API Keyを入力するか、StreamlitのSecretsに設定してください。")
-        st.stop()
+    st.error("⚠️ GEMINI_API_KEY が設定されていません。StreamlitのSecretsを確認してください。")
+    st.stop()
 
 client = genai.Client(api_key=api_key)
 
@@ -194,6 +194,7 @@ with col_memo:
     user_memo = st.text_input(
         "打手／依頼人の実戦メモ（任意）",
         key="memo_input",
+        max_chars=200,
         placeholder="例: 底が3cm盛り上がってる、肉が極薄、持ったら異常に重い、友人が美味いと言っていた、等"
     )
 
@@ -281,5 +282,6 @@ if uploaded_files:
                     f"- 📉 **価格変動ルート**: {f.get('price_to_best', '大幅な見切り値引きを待て')}\n\n"
                     f"- 🥩 **内容変更ルート**: {f.get('content_to_best', '素材の原価率破壊仕様を探せ')}"
                 )
-            except Exception as e:
-                st.error(f"鑑定中にエラーが発生しました: {str(e)}")
+            xcept Exception as e:
+                print(f"[Souzai Error]: {type(e).__name__} - {e}")
+                st.error("⚠️ 鑑定処理中にエラーが発生しました。画像の形式や通信環境をご確認のうえ、再度お試しください。")
